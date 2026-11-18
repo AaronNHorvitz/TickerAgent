@@ -15,8 +15,15 @@
   header { background: var(--accent); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
   header h1 { font-size: 18px; margin: 0; font-weight: 600; }
   header .tag { opacity: .8; font-size: 13px; }
-  form { display: flex; gap: 8px; margin-left: auto; }
-  input { font: inherit; padding: 8px 12px; border-radius: 6px; border: 0; width: 160px; text-transform: uppercase; }
+  form { display: flex; gap: 8px; margin-left: auto; position: relative; }
+  input { font: inherit; padding: 8px 12px; border-radius: 6px; border: 0; width: 260px; max-width: 60vw; }
+  .sugg { position: absolute; top: 42px; left: 0; width: 360px; max-width: 92vw; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 10; padding: 4px 0; display: none; }
+  .sugg.open { display: block; }
+  .sugg div { padding: 7px 12px; cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
+  .sugg div.on, .sugg div:hover { background: var(--chip); }
+  .sugg b { min-width: 58px; } .sugg span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .sugg small { color: var(--muted); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 16px; margin-top: 12px; font-size: 13px; }
+  .facts div span { display: block; color: var(--muted); font-size: 12px; }
   button { font: inherit; padding: 8px 16px; border-radius: 6px; border: 0; background: #f2c14e; color: #1b2430; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .6; cursor: wait; }
   main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; }
@@ -55,9 +62,9 @@
 <body>
 <header>
   <div><h1>TickerAgent</h1><div class="tag">Get up to speed on a stock before the client call, with every point sourced.</div></div>
-  <form id="f"><input id="t" placeholder="Ticker, e.g. NVDA" autocomplete="off" required><button id="go">Build brief</button></form>
+  <form id="f" role="search"><input id="t" placeholder="Ticker or company, e.g. NVDA or berkshire" autocomplete="off" aria-label="Ticker or company name" aria-autocomplete="list" aria-controls="sugg" required><div id="sugg" class="sugg" role="listbox"></div><button id="go">Build brief</button></form>
 </header>
-<main id="out"><div class="empty">Enter a ticker to build a brief from the live quote and the company's latest SEC filings.</div></main>
+<main id="out"><div class="empty">Type a ticker or company name to build a brief from Nasdaq market data and the company's latest SEC filings.</div></main>
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -72,24 +79,40 @@ const cites = ids => ids.map(id => SRC[id] ? `<a class="cite" href="${esc(SRC[id
 const flags = nums => nums && nums.length ? `<span class="flag" title="Figure not found in the cited excerpt; check before quoting">check: ${nums.map(esc).join(", ")}</span>` : "";
 const list = items => items.length ? `<ul>${items.map(p => `<li>${esc(p.point)}${cites(p.sources)}${flags(p.unverified_numbers)}</li>`).join("")}</ul>` : `<div class="sub">Not covered in the latest filings.</div>`;
 
-function spark(series) {
-  if (!series || series.length < 2) return "";
-  const w = 260, h = 50, lo = Math.min(...series), hi = Math.max(...series);
-  const pts = series.map((v, i) => `${(i/(series.length-1))*w},${h - ((v-lo)/(hi-lo||1))*h}`).join(" ");
-  const col = series.at(-1) >= series[0] ? "var(--up)" : "var(--down)";
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="margin-top:8px"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/></svg><div class="sub">12-month trend</div>`;
+function chart(hist) {
+  if (!hist || hist.length < 2) return "";
+  const c = hist.map(r => r.close), w = 300, h = 70, lo = Math.min(...c), hi = Math.max(...c);
+  const pts = c.map((v, i) => `${((i/(c.length-1))*w).toFixed(1)},${(h - ((v-lo)/(hi-lo||1))*h).toFixed(1)}`).join(" ");
+  const col = c.at(-1) >= c[0] ? "var(--up)" : "var(--down)";
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="margin-top:10px;max-width:420px" role="img" aria-label="One-year daily closing prices"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    <div class="sub">Daily close ${esc(hist[0].date)} to ${esc(hist.at(-1).date)} · low $${lo.toFixed(2)} · high $${hi.toFixed(2)}</div>`;
+}
+
+const bigMoney = v => v == null ? "—" : v >= 1e12 ? `$${(v/1e12).toFixed(2)}T` : v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : `$${(v/1e6).toFixed(0)}M`;
+
+function marketHtml(m) {
+  const q = m.quote, sm = m.summary, errs = m.errors || {};
+  let html = "";
+  if (q) {
+    const up = (q.change ?? 0) >= 0, sign = up ? "+" : "";
+    html += `<div class="price">$${q.price.toFixed(2)} <span class="chg ${up ? "up" : "down"}" style="font-size:16px">${q.change == null ? "" : sign + q.change.toFixed(2)} ${q.change_pct == null ? "" : "(" + sign + q.change_pct.toFixed(2) + "%)"}</span></div>
+      <div class="sub">${esc(q.exchange || "")} · last trade ${esc(q.trade_time || "time not given")}${q.is_real_time ? " (real time)" : ""}${q.market_status ? " · market " + esc(q.market_status.toLowerCase()) : ""}${m.one_year_pct != null ? ` · 1-yr ${m.one_year_pct > 0 ? "+" : ""}${m.one_year_pct}%` : ""}</div>`;
+  } else html += `<div class="sub">Quote unavailable right now. ${esc(errs.quote || errs.all || "")}</div>`;
+  if (sm) {
+    const pos = (q && sm.high_52w && sm.low_52w != null) ? Math.max(0, Math.min(100, ((q.price - sm.low_52w) / (sm.high_52w - sm.low_52w || 1)) * 100)) : null;
+    if (sm.high_52w) html += `<div class="range">52-week range${pos != null ? `<div class="bar"><i style="left:${pos}%"></i></div>` : " "}$${sm.low_52w} — $${sm.high_52w}</div>`;
+    const f = [["Previous close", sm.previous_close != null ? "$" + sm.previous_close.toFixed(2) : null], ["Market cap", sm.market_cap ? bigMoney(sm.market_cap) : null],
+               ["Dividend (annual)", sm.dividend], ["Yield", sm.yield], ["Sector", sm.sector], ["Industry", sm.industry]].filter(x => x[1]);
+    html += `<div class="facts">${f.map(([k, v]) => `<div><span>${esc(k)}</span>${esc(v)}</div>`).join("")}</div>`;
+  } else if (q) html += `<div class="sub" style="margin-top:8px">Range, market cap and dividend unavailable right now.</div>`;
+  html += m.history ? chart(m.history) : `<div class="sub" style="margin-top:8px">Price history unavailable right now.</div>`;
+  return html + `<div class="sub" style="margin-top:6px">Market data: ${esc(m.source || "Nasdaq")}. Prices from data, not the model.</div>`;
 }
 
 function render(d) {
   SRC = Object.fromEntries(d.sources.map(s => [s.id, s]));
-  const q = d.quote, s = d.summary, m = d.meta;
-  const dir = (q.change ?? 0) >= 0 ? "up" : "down", sign = (q.change ?? 0) >= 0 ? "+" : "";
-  const pos = q.high_52w ? ((q.price - q.low_52w) / (q.high_52w - q.low_52w || 1)) * 100 : 0;
-  const quoteHtml = q.error ? `<div class="sub">${esc(q.error)}</div>` : `
-    <div class="price">$${q.price.toFixed(2)} <span class="chg ${dir}" style="font-size:16px">${sign}${q.change} (${sign}${q.change_pct}%)</span></div>
-    <div class="sub">${esc(q.exchange)} · as of ${esc(q.as_of)} · 1-yr ${q.one_year_pct > 0 ? "+" : ""}${q.one_year_pct}% · ${esc(q.source)}</div>
-    <div class="range">52-week range<div class="bar"><i style="left:${pos}%"></i></div>$${q.low_52w} — $${q.high_52w}</div>
-    ${spark(q.series)}`;
+  const s = d.summary, m = d.meta;
+  const quoteHtml = marketHtml(d.market);
   const figs = d.figures.length ? `<table><tr><th>Reported (fiscal year)</th><th>Latest</th><th>Prior</th><th>Change</th></tr>${d.figures.map(f => {
       const ch = f.prior ? ((f.value - f.prior) / Math.abs(f.prior) * 100) : null;
       return `<tr><td>${esc(f.metric)}</td><td>${money(f.value, f.is_per_share)}</td><td>${money(f.prior, f.is_per_share)}</td><td class="chg ${ch >= 0 ? "up" : "down"}">${ch == null ? "—" : (ch >= 0 ? "+" : "") + ch.toFixed(1) + "%"}</td></tr>`;
@@ -98,7 +121,7 @@ function render(d) {
 
   $("#out").innerHTML = `
   <div class="top">
-    <div class="card"><p class="name">${esc(d.company.name)} <span class="sub">${esc(d.company.ticker)}</span></p>${quoteHtml}
+    <div class="card"><p class="name">${esc(d.company.name)} <span class="sub">${esc(d.company.symbol)}</span></p>${quoteHtml}
       <div class="oneliner">${esc(s.one_liner)}</div></div>
     <div class="card"><h2>Key figures</h2>${figs}</div>
   </div>
@@ -113,25 +136,68 @@ function render(d) {
   <div class="meta">
     <span class="badge ${m.mode}">${m.mode === "ai" ? "AI summary" : "Extractive preview"}</span>
     <span>${esc(m.note)}</span>
+    ${(m.notes || []).map(n => `<span>${esc(n)}</span>`).join("")}
     ${m.grounding && m.grounding.points != null ? `<span>Grounding: ${m.grounding.points} cited points · ${m.grounding.dropped_uncited} uncited dropped · ${m.grounding.flagged_numbers} flagged for figure check</span>` : ""}
     <span>Data ${m.data_seconds}s · total ${m.total_seconds}s · ${esc(m.generated)}</span>
   </div>
   <div class="disclaimer">For advisor preparation only. Summarizes public company disclosures; not investment advice or a recommendation. Verify figures against the linked filings before sharing with clients.</div>`;
 }
 
-$("#f").addEventListener("submit", async e => {
-  e.preventDefault();
-  const t = $("#t").value.trim().toUpperCase();
+async function loadBrief(t) {
   $("#go").disabled = true;
-  $("#out").innerHTML = `<div class="empty"><span class="spinner"></span>Pulling the quote and ${esc(t)}'s latest 10-K, 10-Q and 8-Ks from SEC EDGAR, then summarizing…</div>`;
+  closeSugg();
+  $("#out").innerHTML = `<div class="empty"><span class="spinner"></span>Pulling Nasdaq market data and ${esc(t)}'s latest 10-K, 10-Q and 8-Ks from SEC EDGAR, then summarizing…</div>`;
   try {
-    const r = await fetch(`/api/brief/${encodeURIComponent(t)}`);
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || r.statusText);
+    const r = await fetch(`/api/brief/${t.split("/").map(encodeURIComponent).join("/")}`);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "Something went wrong building the brief. Please try again.");
     render(d);
   } catch (err) {
     $("#out").innerHTML = `<div class="card err">${esc(err.message)}</div>`;
   } finally { $("#go").disabled = false; }
+}
+
+// Search suggestions as the advisor types.
+let MATCHES = [], ACTIVE = -1, TIMER = null, SEQ = 0;
+function closeSugg() { $("#sugg").classList.remove("open"); MATCHES = []; ACTIVE = -1; $("#t").setAttribute("aria-expanded", "false"); }
+function drawSugg() {
+  const box = $("#sugg");
+  if (!MATCHES.length) { closeSugg(); return; }
+  box.innerHTML = MATCHES.map((m, i) => `<div role="option" data-i="${i}" class="${i === ACTIVE ? "on" : ""}" aria-selected="${i === ACTIVE}"><b>${esc(m.symbol)}</b><span>${esc(m.name)}</span><small>${esc(m.last || "")}</small></div>`).join("");
+  box.classList.add("open"); $("#t").setAttribute("aria-expanded", "true");
+}
+$("#t").addEventListener("input", () => {
+  clearTimeout(TIMER);
+  const q = $("#t").value.trim();
+  if (!q) { closeSugg(); return; }
+  TIMER = setTimeout(async () => {
+    const seq = ++SEQ;
+    try {
+      const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const d = await r.json();
+      if (seq !== SEQ) return;
+      MATCHES = d.matches || []; ACTIVE = MATCHES.length ? 0 : -1; drawSugg();
+    } catch { closeSugg(); }
+  }, 150);
+});
+$("#t").addEventListener("keydown", e => {
+  if (!MATCHES.length) return;
+  if (e.key === "ArrowDown") { ACTIVE = (ACTIVE + 1) % MATCHES.length; drawSugg(); e.preventDefault(); }
+  else if (e.key === "ArrowUp") { ACTIVE = (ACTIVE - 1 + MATCHES.length) % MATCHES.length; drawSugg(); e.preventDefault(); }
+  else if (e.key === "Escape") closeSugg();
+});
+$("#sugg").addEventListener("mousedown", e => {
+  const el = e.target.closest("[data-i]"); if (!el) return;
+  e.preventDefault();
+  const m = MATCHES[+el.dataset.i]; $("#t").value = m.symbol; loadBrief(m.symbol);
+});
+$("#t").addEventListener("blur", () => setTimeout(closeSugg, 100));
+$("#f").addEventListener("submit", e => {
+  e.preventDefault();
+  const pick = ACTIVE >= 0 ? MATCHES[ACTIVE] : null;
+  const t = pick ? pick.symbol : $("#t").value.trim().toUpperCase();
+  if (pick) $("#t").value = pick.symbol;
+  if (t) loadBrief(t);
 });
 </script>
 </body>

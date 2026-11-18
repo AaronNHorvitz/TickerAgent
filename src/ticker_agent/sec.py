@@ -58,7 +58,7 @@ def _cached_get(url: str, key: str) -> bytes:
 
 def lookup_company(ticker: str) -> dict:
     data = json.loads(_cached_get("https://www.sec.gov/files/company_tickers.json", "company_tickers.json"))
-    t = ticker.strip().upper().replace(".", "-")
+    t = re.sub(r"[./]", "-", ticker.strip().upper())
     for row in data.values():
         if row["ticker"].upper() == t:
             return {"ticker": row["ticker"], "cik": int(row["cik_str"]), "name": row["title"]}
@@ -206,7 +206,6 @@ def _exhibit_99_text(f: Filing) -> str:
     # Exhibit 99.x when the name says so; otherwise the largest attachment (usually the press release).
     pick = next((i for i in files if "99" in i["name"]), None) or max(files, key=lambda i: int(i.get("size") or 0))
     return html_to_text(_cached_get(f"{f.folder}/{pick['name']}", f"ex_{f.accession}_{pick['name']}"))
-    return ""
 
 
 # ---- Reported figures (XBRL company facts) ---------------------------------

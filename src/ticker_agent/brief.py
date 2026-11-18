@@ -4,11 +4,10 @@ from __future__ import annotations
 import json
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from pydantic import BaseModel, Field, ValidationError
 
-from . import llm, quote, sec
+from . import gather, llm
 
 SYSTEM = """You are a research assistant for financial advisors at a wealth management firm.
 An advisor needs to get up to speed on a stock before a client conversation.
@@ -54,18 +53,6 @@ class Summary(BaseModel):
     performance_drivers: list[Point] = []
     key_risks: list[Point] = []
     client_questions: list[QA] = []
-
-
-def _sources_from(filings: list[sec.Filing]) -> list[dict]:
-    out = []
-    for f in filings:
-        for name, text in f.sections.items():
-            label = f"{f.form} filed {f.filed}"
-            if f.form == "8-K" and f.item_labels():
-                label += f" ({', '.join(f.item_labels())})"
-            out.append({"id": f"S{len(out) + 1}", "label": label, "section": name,
-                        "url": f.url, "form": f.form, "filed": f.filed, "text": text})
-    return out
 
 
 _NUM = re.compile(r"\d[\d,]*\.?\d*")
@@ -138,24 +125,14 @@ def _extractive(company: dict, sources: list[dict]) -> Summary:
 
 def build_brief(ticker: str) -> dict:
     t0 = time.time()
-    company = sec.lookup_company(ticker)
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        fq = pool.submit(quote.get_quote, company["ticker"])
-        ff = pool.submit(sec.reported_figures, company["cik"])
-        filings = [sec.load_sections(f) for f in sec.recent_filings(company["cik"])]
-        try:
-            q = fq.result()
-        except Exception as e:  # quote outage should not block the filing summary
-            q = {"error": f"Quote unavailable: {e}"}
-        figures = ff.result()
-    sources = _sources_from(filings)
-    t_data = time.time() - t0
+    data = gather.load(ticker)
+    company, sources = data.company, data.sources
 
-    mode, note = "extractive", "AI gateway not configured; showing extractive preview."
+    mode, note = "extractive", "AI service not configured; showing extractive preview."
     stats = {}
     if llm.available():
         excerpts = "\n\n".join(f"[{s['id']}] {s['label']} — {s['section']}\n{s['text']}" for s in sources)
-        user = (f"Company: {company['name']} ({company['ticker']})\n"
+        user = (f"Company: {company['name']} ({company['symbol']})\n"
                 f"Today: {time.strftime('%Y-%m-%d')}\n\nFiling excerpts:\n\n{excerpts}")
         try:
             raw = llm.complete(SYSTEM, user)
@@ -165,7 +142,7 @@ def build_brief(ticker: str) -> dict:
                 raw = llm.complete(SYSTEM, user + "\n\nReturn valid JSON only, matching the shape exactly.")
                 summary = _parse(raw)
             summary, stats = _ground(summary, sources)
-            mode, note = "ai", f"Summarized by {llm.model_name()} via the firm's AI gateway."
+            mode, note = "ai", f"Summarized by {llm.model_name()}."
         except Exception as e:
             summary = _extractive(company, sources)
             note = f"AI summary failed ({type(e).__name__}); showing extractive preview."
@@ -174,11 +151,11 @@ def build_brief(ticker: str) -> dict:
 
     return {
         "company": company,
-        "quote": q,
-        "figures": figures,
+        "market": data.market,
+        "figures": data.figures,
         "summary": summary.model_dump(),
         "sources": [{k: v for k, v in s.items() if k != "text"} for s in sources],
-        "meta": {"mode": mode, "note": note, "grounding": stats,
-                 "data_seconds": round(t_data, 1), "total_seconds": round(time.time() - t0, 1),
+        "meta": {"mode": mode, "note": note, "grounding": stats, "notes": data.notes,
+                 "data_seconds": data.data_seconds, "total_seconds": round(time.time() - t0, 1),
                  "generated": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())},
     }

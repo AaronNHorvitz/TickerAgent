@@ -51,12 +51,13 @@ flowchart LR
 | Component | File | Responsibility | Status |
 | --- | --- | --- | --- |
 | EDGAR client | `src/ticker_agent/sec.py` | Ticker lookup, newest filings, section extraction, exhibit lookup, XBRL figures, polite rate limiting, cache | built |
-| Nasdaq client | `src/ticker_agent/nasdaq.py` | Stock-list search, quote, summary, daily history; drops analyst price targets; replaces `quote.py` | planned |
+| Nasdaq client | `src/ticker_agent/nasdaq.py` | Stock-list search, quote, summary, daily history; drops analyst price targets; each part fails on its own | built |
 | Model client | `src/ticker_agent/llm.py` | Anthropic SDK: one call for the brief, a streaming call with citations for chat | planned (today: gateway client) |
+| Data set | `src/ticker_agent/gather.py` | Resolves the ticker with SEC, gathers filings, figures and Nasdaq data in parallel, keeps the set for 5 minutes for chat | built |
 | Brief builder | `src/ticker_agent/brief.py` | Gathers data in parallel, labels sources, prompts the model, runs the trust checks, falls back without the model | built |
 | Chat | `src/ticker_agent/chat.py` | Builds the cited document set, streams the answer, runs the trust checks | planned |
 | Guard | `src/ticker_agent/guard.py` | Per-visitor rate limit and daily AI-call cap for the public URL | planned |
-| Web API | `src/ticker_agent/app.py` | `GET /api/search`, `GET /api/brief/{ticker}`, `POST /api/chat` (streamed), `GET /healthz`, input validation | brief and health built |
+| Web API | `src/ticker_agent/app.py` | `GET /api/search`, `GET /api/brief/{ticker}`, `POST /api/chat` (streamed), `GET /healthz`, input validation | search, brief and health built |
 | UI | `src/ticker_agent/static/index.html` | Search box, brief, chat panel with suggested questions and quote-on-tap citations; no build step | brief built |
 
 ## The loaded data set

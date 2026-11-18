@@ -10,10 +10,10 @@ Working backwards from two deliverables: a deployed public URL on Amazon Lightsa
 
 ## 1. Market data from Nasdaq
 
-- [ ] `nasdaq.py`: stock-list search (adapted from the owner's existing screener code), quote, summary, one year of daily prices. Drop the analyst price target.
-- [ ] Replace `quote.py` with `nasdaq.py` in the brief; page shows trade time, 52-week range, market cap, dividend, sector.
-- [ ] `GET /api/search?q=` with a 15-minute stock-list cache; search box suggests matches as the advisor types.
-- [ ] Tests with recorded Nasdaq responses: search, missing fields, endpoint failure leaves the rest of the brief working.
+- [x] `nasdaq.py`: stock-list search (adapted from the owner's existing screener code), quote, summary, one year of daily prices. Drop the analyst price target.
+- [x] Replace `quote.py` with `nasdaq.py` in the brief; page shows trade time, 52-week range, market cap, dividend, sector.
+- [x] `GET /api/search?q=` with a 15-minute stock-list cache; search box suggests matches as the advisor types.
+- [x] Tests with recorded Nasdaq responses: search, missing fields, endpoint failure leaves the rest of the brief working.
 
 Check: NVDA, AAPL and BRK/B briefs show Nasdaq data; "berkshire" finds both share classes.
 

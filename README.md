@@ -18,7 +18,7 @@ One screen, no training: a search box, the brief, and a chat panel with suggeste
 | --- | --- |
 | Brief: SEC filings, XBRL figures, cited AI summary, client questions | Built |
 | Citation and number checks, no-model fallback | Built, tested |
-| Nasdaq market data and company-name search | In progress |
+| Nasdaq market data and company-name search | Built, tested |
 | Claude API (Anthropic SDK) | In progress |
 | Chat with citations | In progress |
 | Release eval for hallucination checks | Planned |
@@ -55,7 +55,8 @@ A fixed pipeline rather than a tool-calling agent: the data each answer needs is
 | File | Role |
 | --- | --- |
 | `src/ticker_agent/sec.py` | EDGAR access, filing text extraction, XBRL figures, 6-hour local cache |
-| `src/ticker_agent/nasdaq.py` | Stock search, quote, summary, daily history (replaces `quote.py`) |
+| `src/ticker_agent/nasdaq.py` | Stock search, quote, summary, daily history; analyst target removed |
+| `src/ticker_agent/gather.py` | The loaded data set for one stock, shared by the brief and chat |
 | `src/ticker_agent/llm.py` | Claude client |
 | `src/ticker_agent/brief.py` | Brief orchestration, prompt, citation and number checks, fallback |
 | `src/ticker_agent/chat.py` | Chat over the loaded documents with citations |

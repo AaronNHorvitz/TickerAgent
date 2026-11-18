@@ -1,10 +1,9 @@
-"""Behavior checks for grounding and fallback. The model is a stand-in here;
-live-gateway behavior is verified separately during the session."""
+"""Behavior checks for grounding and fallback. The model is a stand-in here."""
 import json
 
 import pytest
 
-from ticker_agent import brief, sec
+from ticker_agent import brief, nasdaq, sec
 
 SOURCES = [
     {"id": "S1", "label": "10-K", "section": "Risk factors (Item 1A)", "url": "u", "form": "10-K", "filed": "2026-01-01",
@@ -44,7 +43,7 @@ def test_parse_tolerates_prose_around_json():
     assert brief._parse(raw).one_liner == "A chip company."
 
 
-def _stub_data(monkeypatch):
+def _stub_data(monkeypatch, market=True):
     f = sec.Filing(form="8-K", filed="2026-11-01", period="", accession="0000000000-26-000001",
                    primary_doc="a.htm", items=["5.02"], cik=1)
     f.sections = {"8-K text": SOURCES[1]["text"]}
@@ -52,7 +51,9 @@ def _stub_data(monkeypatch):
     monkeypatch.setattr(sec, "recent_filings", lambda cik: [f])
     monkeypatch.setattr(sec, "load_sections", lambda f: f)
     monkeypatch.setattr(sec, "reported_figures", lambda cik: [])
-    monkeypatch.setattr(brief.quote, "get_quote", lambda t: {"price": 10.0})
+    if market:
+        monkeypatch.setattr(nasdaq, "market_data", lambda s: {"quote": {"price": 10.0}, "summary": None,
+                                                              "history": None, "errors": {}})
 
 
 def test_end_to_end_with_stand_in_model_retries_bad_json(monkeypatch):
@@ -87,3 +88,24 @@ def test_api_rejects_bad_ticker():
     from fastapi.testclient import TestClient
     from ticker_agent.app import app
     assert TestClient(app).get("/api/brief/12$%").status_code in (400, 404)
+
+
+def test_nasdaq_outage_leaves_the_brief_working(monkeypatch):
+    _stub_data(monkeypatch, market=False)  # Nasdaq calls hit the offline transport
+    monkeypatch.setattr(brief.llm, "available", lambda: False)
+    d = brief.build_brief("TEST")
+    assert d["market"]["quote"] is None and set(d["market"]["errors"]) == {"quote", "summary", "history"}
+    assert d["summary"]["recent_developments"] and d["sources"][0]["id"] == "S1"
+    assert any("Nasdaq" in n for n in d["meta"]["notes"])
+
+
+def test_api_accepts_share_class_tickers(monkeypatch):
+    from fastapi.testclient import TestClient
+    from ticker_agent import app as app_mod
+    seen = []
+    monkeypatch.setattr(app_mod, "build_brief", lambda t: seen.append(t) or {"ok": True})
+    c = TestClient(app_mod.app)
+    for t in ("BRK/B", "BRK.B", "brk-b"):
+        assert c.get(f"/api/brief/{t}").status_code == 200
+    assert seen == ["BRK/B", "BRK.B", "brk-b"]
+    assert c.get("/api/brief/BRK/B/LONGER/PATH").status_code == 400
