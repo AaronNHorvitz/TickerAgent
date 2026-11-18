@@ -238,7 +238,7 @@ def reported_figures(cik: int) -> list[dict]:
             if not annual:
                 continue
             by_end = {}
-            for v in annual:
+            for v in sorted(annual, key=lambda v: v.get("filed", "")):
                 by_end[v["end"]] = v  # later filings overwrite restated values
             ends = sorted(by_end)
             cur = by_end[ends[-1]]
@@ -252,6 +252,12 @@ def reported_figures(cik: int) -> list[dict]:
                 "prior": prev["val"] if prev else None,
                 "is_per_share": label == "Diluted EPS", "accession": cur.get("accn"),
             })
+    # A company can stop reporting a line item (BRK's cash line ends in 2017).
+    # Show only figures from the latest fiscal year so nothing stale sits next
+    # to current numbers; 31 days allows for 52/53-week fiscal calendars.
+    if out:
+        latest = max(r["period_end"] for r in out)
+        out = [r for r in out if _days(r["period_end"], latest) <= 31]
     return out
 
 
