@@ -38,9 +38,9 @@ Check: ten live questions on NVDA read correctly with sources. (Not run yet: no 
 
 ## 4. Release eval (gates deployment)
 
-- [ ] About 30 questions across three stocks: answerable, unanswerable, advice-seeking, and an instruction planted in a filing excerpt.
-- [ ] Script reports: citation coverage, unsupported figures, correct "not in the data" answers, advice refusals, accuracy against expected facts.
-- [ ] Results table in `docs/EVAL.md`.
+- [x] About 30 questions across three stocks: answerable, unanswerable, advice-seeking, and an instruction planted in a filing excerpt.
+- [x] Script reports: citation coverage, unsupported figures, correct "not in the data" answers, advice refusals, accuracy against expected facts.
+- [ ] Results table in `docs/EVAL.md`. (Script writes it; first live run pending an API key, so EVAL.md says not run.)
 
 Check: PRD section 3 targets met: 100% cited, 0 unsupported figures, 100% correct "not in the data", 0 recommendations, at least 90% accurate.
 

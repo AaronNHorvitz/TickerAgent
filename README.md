@@ -21,7 +21,7 @@ One screen, no training: a search box, the brief, and a chat panel with suggeste
 | Nasdaq market data and company-name search | Built, tested |
 | Claude API (Anthropic SDK) | Built, tested with a stand-in model; live call pending an API key |
 | Chat with citations | Built, tested with a stand-in model; live run pending an API key |
-| Release eval for hallucination checks | Planned |
+| Release eval for hallucination checks | Built (31 questions); first live run pending an API key |
 | Deployment on Amazon Lightsail | Planned |
 
 Plan and progress: [docs/DEV_PLAN.md](docs/DEV_PLAN.md). Requirements: [docs/PRD.md](docs/PRD.md). Architecture and diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -62,6 +62,7 @@ A fixed pipeline rather than a tool-calling agent: the data each answer needs is
 | `src/ticker_agent/chat.py` | Chat over the loaded documents: cited documents, closed-book prompt, number and uncited-figure checks, streamed events |
 | `src/ticker_agent/app.py` | FastAPI: page, search, brief, chat, health check |
 | `src/ticker_agent/static/index.html` | Single-page UI, no build step |
+| `eval/questions.json`, `eval/release_eval.py` | Release eval: questions, scoring, report in `docs/EVAL.md` |
 
 ## Run locally
 
@@ -81,7 +82,7 @@ Without an API key the app still runs and shows market data, figures and quoted 
 pytest -q
 ```
 
-Unit tests use a stand-in model and recorded responses: citation handling, number flags, fallbacks and input validation. The release eval (see the dev plan) runs against the live model.
+Unit tests use a stand-in model and recorded responses: citation handling, number flags, fallbacks and input validation. The release eval runs against the live model: `PYTHONPATH=src python eval/release_eval.py` (results in [docs/EVAL.md](docs/EVAL.md)).
 
 ## Deploy
 
