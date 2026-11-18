@@ -18,8 +18,8 @@ Outcome: a one-page brief in under a minute, where every statement links to the 
 ## Inputs and available integrations
 
 - SEC EDGAR (public, no key): ticker→CIK map, submissions index, filing documents, XBRL company facts.
-- Quote: public delayed chart endpoint (prototype only; production swaps in the firm's licensed market-data feed behind the same function).
-- Model: the provided AI gateway, OpenAI-compatible, configured through `.env` (see `.env.example`). No key in code.
+- Market data: Nasdaq public website data (quote, summary, daily history, stock list). No key; not a documented API, so it sits behind one module that a licensed feed replaces in production.
+- Model: Claude Opus 5.5 through the Anthropic API on the owner's account, configured through `.env` (see `.env.example`). No key in code.
 
 ## Required working capabilities
 
@@ -44,7 +44,7 @@ Advisor types a ticker → brief renders with quote, figures, summary, citations
 
 ## Tool, data, and deployment constraints
 
-- Python 3.12, FastAPI + one static page, OpenAI SDK pointed at the gateway. No agent framework: the steps are fixed, so a deterministic pipeline is simpler, faster and auditable.
+- Python 3.12, FastAPI + one static page, Anthropic SDK (replacing the initial gateway client). No agent framework: the steps are fixed, so a deterministic pipeline is simpler, faster and auditable.
 - SEC fair-access: declared User-Agent, under 10 req/s, 6-hour local cache in `data/cache` (git-ignored).
 - Not investment advice: the prompt forbids recommendations and price targets; the page carries a disclaimer.
 
@@ -55,18 +55,12 @@ Advisor types a ticker → brief renders with quote, figures, summary, citations
 - Section extraction: headings anchored to line start, longest span wins (skips table-of-contents hits). 8-K cover boilerplate is skipped; exhibit 99 (or the largest attachment) is appended.
 - Verified with live data (no model): data path for AAPL, NVDA, TSLA, BRK.B, JPM; API on port 8010.
 - Verified with a stand-in model (tests/test_brief.py, 6 passing): citation dropping, number flagging, JSON retry, gateway-failure fallback, ticker validation.
-- Not yet verified: live gateway call. Run one brief with the provided key before the demo.
+- Not yet verified: live model call. Needs the Anthropic API key (dev plan task 2).
 
 See the README for running, testing and deployment.
 
-## Separate stock lookup utility
+## Decision log
 
-At the owner's request, `../AgentTracker` is a standalone sibling utility with
-an importable NASDAQ screener downloader, ticker/name search, and CLI. It is
-independent of this application's quote adapter. Its source provenance, public
-API, CLI commands, and operating limits are in
-[the utility README](../../AgentTracker/README.md).
-
-Verification on November 18, 2026: 21 synthetic-response checks passed; live
-CLI searches for AAPL and Berkshire Hathaway succeeded. The provider supplied
-no market timestamp, so freshness remains unverified. No model was used.
+- 2026-11-18: Market data moves from a public delayed chart endpoint to Nasdaq's quote, summary, history and stock-list data, adapting the owner's existing screener code. Adds company-name search and an exchange trade timestamp. Nasdaq's analyst price target is dropped to keep the no-recommendation rule.
+- 2026-11-18: Model access moves from the interview gateway to the Anthropic API on the owner's account, using the Anthropic SDK. Chat uses Claude's built-in citations so every sentence maps to an exact quoted passage.
+- 2026-11-18: Hosting target is an Amazon Lightsail container service; the image is built by GitHub Actions.

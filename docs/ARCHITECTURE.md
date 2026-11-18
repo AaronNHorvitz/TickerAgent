@@ -1,8 +1,8 @@
 # Architecture
 
-TickerAgent is one small web service. It gathers public data for a ticker, asks the model to summarize or answer only from that data, checks the model's output against the sources, and serves the result to a single-page UI.
+TickerAgent is one small web service. It gathers public data for a stock, asks Claude to summarize or answer only from that data, checks the output against the sources, and serves the result to a single-page UI.
 
-Status: **built** = working in the repo today; **planned** = in the PRD, being built next.
+Status: **built** = working in the repo today; **planned** = in the PRD and [DEV_PLAN.md](DEV_PLAN.md), being built next.
 
 ## System overview
 
@@ -10,21 +10,27 @@ Status: **built** = working in the repo today; **planned** = in the PRD, being b
 flowchart LR
     advisor["Advisor<br/>laptop or phone browser"]
 
-    subgraph lightsail["Amazon Lightsail container service (planned)"]
-        ui["Single-page UI<br/>brief + chat panel"]
-        api["FastAPI app<br/>/api/brief, /api/chat, /healthz"]
-        cache[("Local cache<br/>6 hours")]
+    subgraph lightsail["Amazon Lightsail container service"]
+        ui["Single-page UI<br/>search, brief, chat"]
+        api["FastAPI app<br/>/api/search, /api/brief, /api/chat, /healthz"]
+        cache[("Local cache<br/>filings 6 h, stock list 15 min")]
     end
 
-    subgraph edgar["SEC EDGAR: public, no API key"]
+    subgraph edgar["SEC EDGAR: public, no key"]
         tickers["Ticker map"]
         subs["Submissions API<br/>filing list"]
         xbrl["XBRL company facts API<br/>reported figures"]
         docs["Filing documents<br/>10-K, 10-Q, 8-K + exhibits"]
     end
 
-    quote["Delayed quote endpoint<br/>prototype; licensed feed later"]
-    llm["AI gateway<br/>Claude Sonnet 4.5"]
+    subgraph nasdaq["Nasdaq: public website data, no key"]
+        screener["Stock list<br/>name search"]
+        info["Quote"]
+        summary["Summary<br/>52-week range, market cap"]
+        hist["One year of daily prices"]
+    end
+
+    claude["Anthropic API<br/>Claude Opus 5.5"]
 
     advisor -->|HTTPS| ui
     ui --> api
@@ -33,8 +39,11 @@ flowchart LR
     api --> subs
     api --> xbrl
     api --> docs
-    api --> quote
-    api --> llm
+    api --> screener
+    api --> info
+    api --> summary
+    api --> hist
+    api --> claude
 ```
 
 ## Components
@@ -42,24 +51,24 @@ flowchart LR
 | Component | File | Responsibility | Status |
 | --- | --- | --- | --- |
 | EDGAR client | `src/ticker_agent/sec.py` | Ticker lookup, newest filings, section extraction, exhibit lookup, XBRL figures, polite rate limiting, cache | built |
-| Quote client | `src/ticker_agent/quote.py` | Price, day change, 52-week range, one year of daily closes | built |
-| Model client | `src/ticker_agent/llm.py` | One function over any OpenAI-compatible gateway; settings from environment | built |
-| Brief builder | `src/ticker_agent/brief.py` | Gathers data in parallel, numbers sources S1..Sn, prompts the model, runs the trust checks, falls back without the model | built |
-| Chat | `src/ticker_agent/chat.py` | Answers follow-up questions from the same data set, with the same trust checks | planned |
-| Web API | `src/ticker_agent/app.py` | `GET /api/brief/{ticker}`, `POST /api/chat`, `GET /healthz`, input validation | brief and health built; chat planned |
-| UI | `src/ticker_agent/static/index.html` | Ticker box, brief, chat panel with suggested questions; no build step | brief built; chat planned |
+| Nasdaq client | `src/ticker_agent/nasdaq.py` | Stock-list search, quote, summary, daily history; drops analyst price targets; replaces `quote.py` | planned |
+| Model client | `src/ticker_agent/llm.py` | Anthropic SDK: one call for the brief, a streaming call with citations for chat | planned (today: gateway client) |
+| Brief builder | `src/ticker_agent/brief.py` | Gathers data in parallel, labels sources, prompts the model, runs the trust checks, falls back without the model | built |
+| Chat | `src/ticker_agent/chat.py` | Builds the cited document set, streams the answer, runs the trust checks | planned |
+| Guard | `src/ticker_agent/guard.py` | Per-visitor rate limit and daily AI-call cap for the public URL | planned |
+| Web API | `src/ticker_agent/app.py` | `GET /api/search`, `GET /api/brief/{ticker}`, `POST /api/chat` (streamed), `GET /healthz`, input validation | brief and health built |
+| UI | `src/ticker_agent/static/index.html` | Search box, brief, chat panel with suggested questions and quote-on-tap citations; no build step | brief built |
 
-## Data each answer can draw on
+## The loaded data set
 
-Every item the model sees has a source ID, and the UI turns each ID into a link.
+Everything the model may use for one stock. Each item is passed to Claude as a separate document with citations enabled, so every cited sentence points at an exact passage.
 
-| ID | Source | Origin |
+| Source | Content | Origin |
 | --- | --- | --- |
 | `S1`..`Sn` | Filing sections: 10-K Items 1, 1A, 7; 10-Q MD&A and risk updates; 8-K text and press-release exhibit | EDGAR filing documents |
-| `F` | Reported figures for the latest fiscal year and the prior year | EDGAR XBRL company facts |
-| `Q` | Quote, 52-week range, one year of daily closes | Quote endpoint |
-
-`F` and `Q` join the brief's sources when chat is built, so the model can answer questions such as "How has the stock moved since earnings?" from the actual numbers.
+| `F` | Reported figures, latest fiscal year and prior year | EDGAR XBRL company facts |
+| `Q` | Quote, day change, 52-week range, market cap, dividend, sector | Nasdaq quote and summary (analyst target removed) |
+| `P` | One year of daily open, high, low, close, volume | Nasdaq historical |
 
 ## Brief request
 
@@ -69,25 +78,27 @@ sequenceDiagram
     participant W as Web page
     participant S as FastAPI app
     participant E as SEC EDGAR
-    participant Q as Quote source
-    participant M as AI gateway
+    participant N as Nasdaq
+    participant M as Claude
 
-    A->>W: Enter ticker
+    A->>W: Search "nvidia", pick NVDA
     W->>S: GET /api/brief/NVDA
-    S->>E: Ticker map, filing list, company facts
-    S->>Q: Quote and one year of prices
+    par Data in parallel
+        S->>E: Filing list, company facts
+        S->>N: Quote, summary, one year of prices
+    end
     S->>E: Newest 10-K, 10-Q, 8-Ks and exhibits
-    S->>S: Extract sections, label S1..Sn
-    S->>M: Labelled excerpts + rules
-    M-->>S: JSON summary with source IDs
+    S->>S: Extract sections, label sources
+    S->>M: Labelled sources + rules
+    M-->>S: Summary with source IDs
     S->>S: Drop uncited points, flag unmatched numbers
     S-->>W: Brief JSON
     W-->>A: Brief with source links
 ```
 
-## Chat request (planned)
+## Chat request
 
-The server keeps no conversation state. The page sends the ticker, the question and the last few turns; the server rebuilds the data set from its cache. Any container can answer any request, and there is no database to run.
+The server keeps no conversation state. The page sends the ticker, the question and the earlier turns; the server rebuilds the data set from its cache. Any container can answer any request, and there is no database to run. The loaded documents sit at the start of every request, so prompt caching makes later turns faster and cheaper.
 
 ```mermaid
 sequenceDiagram
@@ -95,62 +106,68 @@ sequenceDiagram
     participant W as Web page
     participant S as FastAPI app
     participant C as Local cache
-    participant M as AI gateway
+    participant M as Claude
 
-    A->>W: Why did margins fall last quarter?
-    W->>S: POST /api/chat with ticker, question, recent turns
+    A->>W: What did the November 8-K say about the CEO?
+    W->>S: POST /api/chat with ticker, question, earlier turns
     S->>C: Same filings, figures and prices as the brief
-    S->>M: Labelled data + rules + conversation
-    M-->>S: Answer with source IDs
-    S->>S: Same citation and number checks
-    S-->>W: Answer, sources, flags
-    W-->>A: Answer with source links
+    S->>M: Documents with citations on + rules + conversation (streamed)
+    M-->>S: Text as it is written
+    S-->>W: Text as it is written
+    M-->>S: Final answer with cited passages
+    S->>S: Number check, uncited-figure check
+    S-->>W: Citations, quoted passages, flags
+    W-->>A: Answer with tap-to-see sources
 ```
 
 ## Trust checks
 
-The same checks run on every brief point and every chat answer.
-
 ```mermaid
 flowchart TD
-    out["Model output"] --> cited{"Cites a real<br/>source ID?"}
-    cited -- no --> drop["Removed before display"]
-    cited -- yes --> nums{"Every number appears<br/>in the cited source?"}
-    nums -- no --> flag["Shown with a check flag<br/>for the advisor to verify"]
-    nums -- yes --> show["Shown with source links"]
-    fail["Gateway error or bad output twice"] --> extract["Extractive brief:<br/>quoted filing text, labelled"]
+    q["Question"] --> covered{"Covered by the<br/>loaded data?"}
+    covered -- no --> abstain["Says it is not in the loaded data<br/>and names what would cover it"]
+    covered -- yes --> answer["Answer with citations<br/>to exact passages"]
+    answer --> cited{"Sentence states a number<br/>or date without a citation?"}
+    cited -- yes --> unverified["Flagged unverified"]
+    cited -- no --> nums{"Every number appears in<br/>the cited passage or data?"}
+    nums -- no --> check["Flagged check"]
+    nums -- yes --> show["Shown with quoted source"]
+    fail["Claude unavailable"] --> extract["Brief: market data, figures and<br/>quoted filing text, labelled<br/>Chat: unavailable message"]
 ```
 
-Further rules live in the prompt: answer only from the labelled data, say so when the data does not cover a question, no recommendations or price targets, and treat filing text as data rather than instructions.
+The prompt adds the remaining rules: no outside knowledge, no recommendations, price targets or predictions, and filing text is data rather than instructions. A release eval set (answerable, unanswerable, advice-seeking and injection questions) checks all of this before each deployment.
 
-## Deployment on Amazon Lightsail (planned)
+## Deployment on Amazon Lightsail
 
 ```mermaid
 flowchart LR
-    repo["GitHub repo"] --> build["Container build<br/>Dockerfile"]
-    build --> push["Push image to the<br/>Lightsail container service"]
-    push --> deploy["Deployment<br/>port 8000, health check /healthz<br/>secrets as environment variables"]
-    deploy --> svc["Container service<br/>micro size, 1 node"]
+    push["git push to main"] --> ci["GitHub Actions<br/>tests, then image build"]
+    ci --> reg["Public container image<br/>GitHub Container Registry"]
+    reg --> deploy["Lightsail deployment<br/>port 8000, health check /healthz<br/>secrets as environment variables"]
+    deploy --> svc["Container service<br/>micro, 1 node"]
     svc --> url["Public HTTPS URL"]
 ```
 
 | Setting | Value |
 | --- | --- |
 | Service type | Lightsail container service: managed HTTPS endpoint, no server to patch |
-| Size | Micro (1 GB memory) to leave headroom for parsing large 10-K documents |
+| Size | Micro (1 GB memory), headroom for parsing large 10-K documents |
+| Image | Built and published by GitHub Actions on each push to `main`; Lightsail pulls the public image. If Lightsail cannot pull from that registry, the image is pushed directly with `aws lightsail push-container-image`. |
 | Container port | 8000; `$PORT` is honoured if set |
 | Health check | `GET /healthz` |
-| Environment | `PORTKEY_API_KEY`, `PORTKEY_BASE_URL`, `PORTKEY_MODEL`, `SEC_USER_AGENT`, set at deploy time and never committed |
-| Cache | Container-local `/tmp`; lost on redeploy, which only costs one slower first request per ticker |
+| Environment | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `SEC_USER_AGENT`, rate-limit settings; set at deploy time, never committed |
+| Cache | Container-local `/tmp`; lost on redeploy, which only costs one slower first request per stock |
 
-Brief requests that wait on the model can run 30–60 seconds. The deploy step checks that the public endpoint allows that, and chat answers stream so the advisor sees text immediately.
+Chat streams, so the advisor sees text at once and long answers do not hit request timeouts. The brief call is checked against the Lightsail endpoint's timeout during the deploy step.
 
 ## Key decisions
 
 | Decision | Why |
 | --- | --- |
 | Fixed pipeline instead of a tool-calling agent | The data a brief needs is always the same, so a pipeline is faster, cheaper and easier to audit. Agent-style retrieval (older filings, peers, full-text search) is a roadmap item for chat. |
-| Figures from XBRL, words from the model | The numbers an advisor is most likely to quote never come from the model. |
+| Claude's built-in citations for chat | Each sentence links to an exact quoted passage returned by the API, which is stronger than asking the model to write source IDs. |
+| Figures and prices from code, words from the model | The numbers an advisor is most likely to quote never come from the model. |
 | Stateless chat | Scales across containers with no session store; the cache makes rebuilding the data set cheap. |
-| Official EDGAR APIs, not page scraping | No key needed, same-day freshness, and it stays within SEC fair-access guidance. |
-| One container on Lightsail | The simplest managed option with HTTPS for a prototype. A production rollout would add SSO, an audit log and a licensed quote feed (see the PRD). |
+| Official EDGAR APIs, not page scraping | No key needed, same-day freshness, within SEC fair-access guidance. |
+| Nasdaq behind one adapter | Covers quote, range, history and name search with no key; one module to replace with a licensed feed. |
+| One container on Lightsail | The simplest managed option with HTTPS for a prototype. Production adds SSO, an audit log and licensed data (see the PRD). |
