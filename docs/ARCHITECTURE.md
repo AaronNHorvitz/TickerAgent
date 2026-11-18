@@ -56,7 +56,7 @@ flowchart LR
 | Data set | `src/ticker_agent/gather.py` | Resolves the ticker with SEC, gathers filings, figures and Nasdaq data in parallel, keeps the set for 5 minutes for chat | built |
 | Brief builder | `src/ticker_agent/brief.py` | Gathers data in parallel, labels sources, prompts the model, runs the trust checks, falls back without the model | built |
 | Chat | `src/ticker_agent/chat.py` | Builds the cited document set, streams the answer, runs the trust checks | built (live run pending an API key) |
-| Guard | `src/ticker_agent/guard.py` | Per-visitor rate limit and daily AI-call cap for the public URL | planned |
+| Guard | `src/ticker_agent/guard.py` | Per-visitor rate limit and daily AI-call cap for the public URL, configured by environment | built |
 | Web API | `src/ticker_agent/app.py` | `GET /api/search`, `GET /api/brief/{ticker}`, `POST /api/chat` (streamed), `GET /healthz`, input validation | built |
 | UI | `src/ticker_agent/static/index.html` | Search box, brief, chat panel with suggested questions and quote-on-tap citations; no build step | built |
 

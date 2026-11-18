@@ -120,7 +120,7 @@ def test_api_accepts_share_class_tickers(monkeypatch):
     from fastapi.testclient import TestClient
     from ticker_agent import app as app_mod
     seen = []
-    monkeypatch.setattr(app_mod, "build_brief", lambda t: seen.append(t) or {"ok": True})
+    monkeypatch.setattr(app_mod, "build_brief", lambda t, **k: seen.append(t) or {"ok": True})
     c = TestClient(app_mod.app)
     for t in ("BRK/B", "BRK.B", "brk-b"):
         assert c.get(f"/api/brief/{t}").status_code == 200

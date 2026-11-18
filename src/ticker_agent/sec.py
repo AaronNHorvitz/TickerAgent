@@ -62,7 +62,8 @@ def lookup_company(ticker: str) -> dict:
     for row in data.values():
         if row["ticker"].upper() == t:
             return {"ticker": row["ticker"], "cik": int(row["cik_str"]), "name": row["title"]}
-    raise LookupError(f"No SEC registrant found for ticker '{ticker}'.")
+    raise LookupError(f"'{ticker.strip().upper()}' isn't a ticker we can find among SEC filers. "
+                      "Check the symbol, or search by company name.")
 
 
 @dataclass

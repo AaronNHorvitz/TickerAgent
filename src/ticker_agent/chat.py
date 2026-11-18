@@ -272,7 +272,7 @@ def _sources_list(docs: list[dict]) -> list[dict]:
     return [{"id": d["id"], "title": d["title"], "url": d["url"]} for d in docs]
 
 
-def run(req: ChatRequest, allow_model: bool = True, extra_sources: list[dict] | None = None) -> Iterator[tuple[str, dict]]:
+def run(req: ChatRequest, extra_sources: list[dict] | None = None) -> Iterator[tuple[str, dict]]:
     """Yield (event, data) pairs: "delta" text, "reset", then one "final" or "error".
 
     `extra_sources` appends synthetic filing excerpts (used by the release eval's
@@ -281,14 +281,10 @@ def run(req: ChatRequest, allow_model: bool = True, extra_sources: list[dict] | 
     if not llm.available():
         yield "final", {"unavailable": True, "message": UNAVAILABLE, "blocks": [], "disclaimer": DISCLAIMER}
         return
-    if not allow_model:
-        yield "error", {"message": "The daily limit for AI answers has been reached. Please try again tomorrow.",
-                        "limit": True}
-        return
     t0 = time.time()
     try:
         data = gather.load(req.ticker)
-    except LookupError as e:
+    except (LookupError, gather.SourceUnavailable) as e:
         yield "error", {"message": str(e)}
         return
     if extra_sources:

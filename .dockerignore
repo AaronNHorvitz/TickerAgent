@@ -1,7 +1,11 @@
 .git
+.github
 .venv
 .env
+.env.*
 data
 tests
+eval
+docs
 __pycache__
 .pytest_cache

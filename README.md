@@ -22,6 +22,8 @@ One screen, no training: a search box, the brief, and a chat panel with suggeste
 | Claude API (Anthropic SDK) | Built, tested with a stand-in model; live call pending an API key |
 | Chat with citations | Built, tested with a stand-in model; live run pending an API key |
 | Release eval for hallucination checks | Built (31 questions); first live run pending an API key |
+| Public-URL protection: rate limit, daily AI cap, friendly errors | Built, tested |
+| CI and container image (GitHub Actions, GHCR) | Built; first CI run on the next push |
 | Deployment on Amazon Lightsail | Planned |
 
 Plan and progress: [docs/DEV_PLAN.md](docs/DEV_PLAN.md). Requirements: [docs/PRD.md](docs/PRD.md). Architecture and diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -60,7 +62,9 @@ A fixed pipeline rather than a tool-calling agent: the data each answer needs is
 | `src/ticker_agent/llm.py` | Claude client (Anthropic SDK): structured brief call, streamed cited chat, refusal fallback, friendly errors |
 | `src/ticker_agent/brief.py` | Brief orchestration, prompt, citation and number checks, fallback |
 | `src/ticker_agent/chat.py` | Chat over the loaded documents: cited documents, closed-book prompt, number and uncited-figure checks, streamed events |
-| `src/ticker_agent/app.py` | FastAPI: page, search, brief, chat, health check |
+| `src/ticker_agent/guard.py` | Per-visitor rate limit and daily AI-call cap for a public URL |
+| `src/ticker_agent/app.py` | FastAPI: page, search, brief, chat, health check, friendly errors |
+| `.github/workflows/ci.yml` | Tests on every push and pull request; container image to GHCR from `main` |
 | `src/ticker_agent/static/index.html` | Single-page UI, no build step |
 | `eval/questions.json`, `eval/release_eval.py` | Release eval: questions, scoring, report in `docs/EVAL.md` |
 
@@ -89,11 +93,13 @@ Unit tests use a stand-in model and recorded responses: citation handling, numbe
 Local container:
 
 ```bash
-docker build -t ticker-agent .
-docker run -p 8000:8000 --env-file .env ticker-agent
+podman build -t ticker-agent .      # or docker build
+podman run -p 8000:8000 --env-file .env ticker-agent
 ```
 
-Hosted: Amazon Lightsail container service (micro, one node, health check `/healthz`, public HTTPS URL), with the image built by GitHub Actions. `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` and `SEC_USER_AGENT` are set as deployment environment variables and are never committed. Exact commands land with the deployment.
+CI runs the tests on every push and pull request, and on `main` publishes the image to the GitHub Container Registry (`ghcr.io/<owner>/tickeragent`, tags `latest` and the commit SHA).
+
+Hosted: Amazon Lightsail container service (micro, one node, health check `/healthz`, public HTTPS URL), with the image built by GitHub Actions. `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `SEC_USER_AGENT` and the limits (`RATE_LIMIT_PER_MINUTE`, `SEARCH_LIMIT_PER_MINUTE`, `DAILY_AI_CALLS`) are set as deployment environment variables and are never committed. Exact commands land with the deployment.
 
 ## Data sources and limits
 

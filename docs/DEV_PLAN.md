@@ -46,11 +46,11 @@ Check: PRD section 3 targets met: 100% cited, 0 unsupported figures, 100% correc
 
 ## 5. Ready for a public URL
 
-- [ ] `guard.py`: per-visitor rate limit and daily AI-call cap, settings from environment.
-- [ ] Friendly errors for limits, unknown tickers and source outages; logs with no secrets.
-- [ ] GitHub Actions: run tests on every push; build and publish the container image from `main`.
+- [x] `guard.py`: per-visitor rate limit and daily AI-call cap, settings from environment.
+- [x] Friendly errors for limits, unknown tickers and source outages; logs with no secrets.
+- [x] GitHub Actions: run tests on every push; build and publish the container image from `main`.
 
-Check: limits trigger in tests; CI green on GitHub.
+Check: limits trigger in tests; CI green on GitHub. (Limits verified in tests; the image builds and runs locally with podman; CI not yet run because nothing is pushed.)
 
 ## 6. Deploy on Amazon Lightsail
 

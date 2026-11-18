@@ -12,11 +12,17 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
+import httpx
+
 from . import nasdaq, sec
 
 TTL_S = 5 * 60
 _lock = threading.Lock()
 _cache: dict[str, tuple[float, "StockData"]] = {}
+
+
+class SourceUnavailable(RuntimeError):
+    """SEC could not be reached to resolve the ticker; nothing useful can be shown."""
 
 
 @dataclass
@@ -64,7 +70,11 @@ def load(ticker: str, use_cache: bool = True) -> StockData:
             return hit[1]
 
     t0 = time.time()
-    company = sec.lookup_company(key)
+    try:
+        company = sec.lookup_company(key)
+    except httpx.HTTPError:
+        raise SourceUnavailable("SEC EDGAR is not responding right now, so the company can't be looked up. "
+                                "Please try again in a few minutes.") from None
     company["symbol"] = nasdaq.display_symbol(company["ticker"])
     notes: list[str] = []
     with ThreadPoolExecutor(max_workers=3) as pool:

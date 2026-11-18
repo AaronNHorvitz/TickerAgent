@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+from typing import Callable
 
 from pydantic import BaseModel, Field
 
@@ -169,7 +170,7 @@ def clear_cache() -> None:
         _briefs.clear()
 
 
-def build_brief(ticker: str, allow_model: bool = True) -> dict:
+def build_brief(ticker: str, take_ai_call: Callable[[], bool] = lambda: True) -> dict:
     t0 = time.time()
     hit = cached_ai_brief(ticker)
     if hit:
@@ -183,7 +184,7 @@ def build_brief(ticker: str, allow_model: bool = True) -> dict:
         note = "No filing text could be loaded, so there is no summary."
     elif not llm.available():
         summary = _extractive(company, sources)
-    elif not allow_model:
+    elif not take_ai_call():
         summary = _extractive(company, sources)
         note = "Daily AI limit reached; showing extractive preview."
     else:
