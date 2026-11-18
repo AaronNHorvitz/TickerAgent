@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from ticker_agent import gather, nasdaq, sec
+from ticker_agent import brief, gather, nasdaq, sec
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -17,6 +17,7 @@ def fixture(name: str) -> dict:
 def _fresh_caches(monkeypatch):
     """No test reuses another's cached data, and no test reaches the network."""
     nasdaq.clear_cache()
+    brief.clear_cache()
     gather.clear_cache()
 
     def offline(request):
@@ -25,6 +26,7 @@ def _fresh_caches(monkeypatch):
     monkeypatch.setattr(sec, "_client", httpx.Client(transport=httpx.MockTransport(offline)))
     yield
     nasdaq.clear_cache()
+    brief.clear_cache()
     gather.clear_cache()
 
 

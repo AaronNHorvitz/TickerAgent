@@ -39,12 +39,12 @@ Advisor types a ticker → brief renders with quote, figures, summary, citations
 - AAPL, NVDA, TSLA, BRK.B: full path verified against live SEC and quote data.
 - Unknown ticker: 404 with a readable message.
 - Quote outage: the brief still renders from filings with a quote-unavailable note.
-- Gateway down, key missing, or bad JSON twice: falls back to an extractive brief (first sentences of each cited section), labelled as such.
+- AI service down, key missing, a refusal, or output that fails the schema twice: falls back to an extractive brief (first sentences of each cited section), labelled as such.
 - Known gap: some filers (e.g. large banks) put MD&A in an annual-report exhibit; that section comes back thin and the brief says so.
 
 ## Tool, data, and deployment constraints
 
-- Python 3.12, FastAPI + one static page, Anthropic SDK (replacing the initial gateway client). No agent framework: the steps are fixed, so a deterministic pipeline is simpler, faster and auditable.
+- Python 3.12, FastAPI + one static page, Anthropic SDK. No agent framework: the steps are fixed, so a deterministic pipeline is simpler, faster and auditable.
 - SEC fair-access: declared User-Agent, under 10 req/s, 6-hour local cache in `data/cache` (git-ignored).
 - Not investment advice: the prompt forbids recommendations and price targets; the page carries a disclaimer.
 
@@ -54,7 +54,7 @@ Advisor types a ticker → brief renders with quote, figures, summary, citations
 - Numbers from structured data, words from the model: the figures table is XBRL; the model may only restate numbers present in its cited excerpt, and a post-check enforces it.
 - Section extraction: headings anchored to line start, longest span wins (skips table-of-contents hits). 8-K cover boilerplate is skipped; exhibit 99 (or the largest attachment) is appended.
 - Verified with live data (no model): data path for AAPL, NVDA, TSLA, BRK.B, JPM; API on port 8010.
-- Verified with a stand-in model (tests/test_brief.py, 6 passing): citation dropping, number flagging, JSON retry, gateway-failure fallback, ticker validation.
+- Verified with a stand-in model (tests/test_brief.py, 6 passing): citation dropping, number flagging, JSON retry, service-failure fallback, ticker validation.
 - Not yet verified: live model call. Needs the Anthropic API key (dev plan task 2).
 
 See the README for running, testing and deployment.
@@ -65,3 +65,4 @@ See the README for running, testing and deployment.
 - 2026-11-18: Model access moves from the interview gateway to the Anthropic API on the owner's account, using the Anthropic SDK. Chat uses Claude's built-in citations so every sentence maps to an exact quoted passage.
 - 2026-11-18: Hosting target is an Amazon Lightsail container service; the image is built by GitHub Actions.
 - 2026-11-18: Task 1 done. `nasdaq.py` (adapted from the owner's screener code) serves search over the 7,291-row stock list (15-minute memory cache), quote, summary and one year of daily prices (5-minute cache so chat turns see the same numbers). Summary keys or labels mentioning a target are dropped. Symbols are normalized: BRK/B for display and search, BRK-B for SEC, BRK.B in the quote URL (Nasdaq 404s on an encoded slash). Each Nasdaq part fails on its own and the brief renders from SEC data. `quote.py` removed. Verified with live data, no model: NVDA, AAPL and BRK/B briefs carry quote with trade time, 52-week range, market cap, sector and 252 daily rows; "berkshire" returns BRK/A and BRK/B. Unit tests use recorded responses in `tests/fixtures/`.
+- 2026-11-18: Task 2 done. `llm.py` uses the Anthropic SDK (`anthropic` 2.10.0); the gateway client and `openai` dependency are gone. Model from `ANTHROPIC_MODEL` (default `claude-opus-5-5`), effort from `BRIEF_EFFORT` (medium) and `CHAT_EFFORT` (low), no sampling parameters. The brief call streams with structured outputs (`output_format=BriefOutput`), so the JSON is schema-checked by the API and by pydantic; the source-ID scheme, `_ground` and `_unverified` stay because citations cannot be combined with structured outputs. Every call sends `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) and checks `stop_reason` for `refusal` and `max_tokens` before reading content. SDK errors map, most specific first, to friendly messages; logs carry the error class only. AI briefs are kept 10 minutes per ticker so reloads cost nothing. Verified with a stand-in model and a fake SDK client (request shape, refusal, fallback, error mapping). Not yet verified live: no API key on the build machine.

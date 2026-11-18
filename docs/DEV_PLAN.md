@@ -19,11 +19,11 @@ Check: NVDA, AAPL and BRK/B briefs show Nasdaq data; "berkshire" finds both shar
 
 ## 2. Claude API
 
-- [ ] Add the `anthropic` SDK; `llm.py` reads `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` (default `claude-opus-5-5`); remove the gateway client.
-- [ ] Brief call returns schema-checked JSON; keep the citation and number checks and the no-model fallback.
-- [ ] Refusal handling and server-side model fallback on.
+- [x] Add the `anthropic` SDK; `llm.py` reads `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` (default `claude-opus-5-5`); remove the gateway client.
+- [x] Brief call returns schema-checked JSON; keep the citation and number checks and the no-model fallback.
+- [x] Refusal handling and server-side model fallback on.
 
-Check: one live brief per test stock; existing tests pass.
+Check: one live brief per test stock; existing tests pass. (Tests pass with a stand-in model; live brief not run yet: no API key on the build machine.)
 
 ## 3. Chat without hallucinations
 

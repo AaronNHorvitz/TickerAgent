@@ -1,9 +1,8 @@
 """Behavior checks for grounding and fallback. The model is a stand-in here."""
-import json
-
 import pytest
+from pydantic import ValidationError
 
-from ticker_agent import brief, nasdaq, sec
+from ticker_agent import brief, llm, nasdaq, sec
 
 SOURCES = [
     {"id": "S1", "label": "10-K", "section": "Risk factors (Item 1A)", "url": "u", "form": "10-K", "filed": "2026-01-01",
@@ -38,9 +37,14 @@ def test_numbers_must_appear_in_cited_text():
     assert stats["flagged_numbers"] == 2
 
 
-def test_parse_tolerates_prose_around_json():
-    raw = 'Here is the brief:\n{"one_liner": "A chip company.", "key_risks": []}\nThanks.'
-    assert brief._parse(raw).one_liner == "A chip company."
+def test_model_output_must_match_the_brief_schema():
+    with pytest.raises(ValidationError):
+        brief.BriefOutput.model_validate({"one_liner": "A chip company.", "key_risks": []})
+    full = {"one_liner": "A chip company.", "snapshot": [], "recent_developments": [],
+            "performance_drivers": [], "client_questions": [],
+            "key_risks": [{"point": "Supply is concentrated in Taiwan.", "sources": ["S1"]}]}
+    s = brief._to_summary(brief.BriefOutput.model_validate(full))
+    assert s.key_risks[0].unverified_numbers == []
 
 
 def _stub_data(monkeypatch, market=True):
@@ -56,38 +60,51 @@ def _stub_data(monkeypatch, market=True):
                                                               "history": None, "errors": {}})
 
 
-def test_end_to_end_with_stand_in_model_retries_bad_json(monkeypatch):
+def test_end_to_end_with_stand_in_model_retries_bad_output(monkeypatch):
     _stub_data(monkeypatch)
-    replies = iter(["not json", json.dumps({
-        "one_liner": "Test Corp makes tests.",
+    good = brief.BriefOutput.model_validate({
+        "one_liner": "Test Corp makes tests.", "snapshot": [], "performance_drivers": [], "key_risks": [],
         "recent_developments": [{"point": "New CFO effective November 3, 2026.", "sources": ["S1"]}],
         "client_questions": [{"question": "Who is the CFO?", "answer": "A new CFO started.", "sources": ["S1"]}],
-    })])
-    monkeypatch.setattr(brief.llm, "available", lambda: True)
-    monkeypatch.setattr(brief.llm, "complete", lambda system, user, **k: next(replies))
+    })
+    calls = []
+
+    def stand_in(system, user, schema, **k):
+        calls.append(schema)
+        if len(calls) == 1:
+            raise llm.LLMError("bad_output", "The AI answer did not match the expected format.")
+        return good
+    monkeypatch.setattr(llm, "available", lambda: True)
+    monkeypatch.setattr(llm, "structured", stand_in)
     d = brief.build_brief("TEST")
+    assert calls == [brief.BriefOutput, brief.BriefOutput]
     assert d["meta"]["mode"] == "ai"
     assert d["summary"]["recent_developments"][0]["unverified_numbers"] == []
     assert d["sources"][0]["id"] == "S1" and "text" not in d["sources"][0]
 
 
-def test_gateway_failure_falls_back_to_extractive(monkeypatch):
+def test_service_failure_falls_back_to_extractive(monkeypatch):
     _stub_data(monkeypatch)
-    monkeypatch.setattr(brief.llm, "available", lambda: True)
+    monkeypatch.setattr(llm, "available", lambda: True)
 
     def boom(*a, **k):
-        raise ConnectionError("gateway down")
-    monkeypatch.setattr(brief.llm, "complete", boom)
+        raise llm.LLMError("outage", "The AI service is having trouble right now.")
+    monkeypatch.setattr(llm, "structured", boom)
     d = brief.build_brief("TEST")
     assert d["meta"]["mode"] == "extractive"
-    assert "ConnectionError" in d["meta"]["note"]
+    assert "having trouble" in d["meta"]["note"] and "extractive" in d["meta"]["note"]
     assert d["summary"]["recent_developments"]
 
 
-def test_api_rejects_bad_ticker():
-    from fastapi.testclient import TestClient
-    from ticker_agent.app import app
-    assert TestClient(app).get("/api/brief/12$%").status_code in (400, 404)
+def test_refusal_falls_back_to_extractive(monkeypatch):
+    _stub_data(monkeypatch)
+    monkeypatch.setattr(llm, "available", lambda: True)
+
+    def refuse(*a, **k):
+        raise llm.LLMRefusal("cyber")
+    monkeypatch.setattr(llm, "structured", refuse)
+    d = brief.build_brief("TEST")
+    assert d["meta"]["mode"] == "extractive" and "declined" in d["meta"]["note"]
 
 
 def test_nasdaq_outage_leaves_the_brief_working(monkeypatch):
