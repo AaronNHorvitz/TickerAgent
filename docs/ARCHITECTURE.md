@@ -55,10 +55,10 @@ flowchart LR
 | Model client | `src/ticker_agent/llm.py` | Anthropic SDK: one structured-output call for the brief, a streaming call with citations for chat; server-side refusal fallback; errors mapped to friendly messages | built (live call pending an API key) |
 | Data set | `src/ticker_agent/gather.py` | Resolves the ticker with SEC, gathers filings, figures and Nasdaq data in parallel, keeps the set for 5 minutes for chat | built |
 | Brief builder | `src/ticker_agent/brief.py` | Gathers data in parallel, labels sources, prompts the model, runs the trust checks, falls back without the model | built |
-| Chat | `src/ticker_agent/chat.py` | Builds the cited document set, streams the answer, runs the trust checks | planned |
+| Chat | `src/ticker_agent/chat.py` | Builds the cited document set, streams the answer, runs the trust checks | built (live run pending an API key) |
 | Guard | `src/ticker_agent/guard.py` | Per-visitor rate limit and daily AI-call cap for the public URL | planned |
-| Web API | `src/ticker_agent/app.py` | `GET /api/search`, `GET /api/brief/{ticker}`, `POST /api/chat` (streamed), `GET /healthz`, input validation | search, brief and health built |
-| UI | `src/ticker_agent/static/index.html` | Search box, brief, chat panel with suggested questions and quote-on-tap citations; no build step | brief built |
+| Web API | `src/ticker_agent/app.py` | `GET /api/search`, `GET /api/brief/{ticker}`, `POST /api/chat` (streamed), `GET /healthz`, input validation | built |
+| UI | `src/ticker_agent/static/index.html` | Search box, brief, chat panel with suggested questions and quote-on-tap citations; no build step | built |
 
 ## The loaded data set
 

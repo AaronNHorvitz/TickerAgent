@@ -27,14 +27,14 @@ Check: one live brief per test stock; existing tests pass. (Tests pass with a st
 
 ## 3. Chat without hallucinations
 
-- [ ] `chat.py`: each source (filing sections, figures, quote, prices) passed as a document with citations on; loaded documents cached across turns.
-- [ ] Prompt: closed book, say so when not covered and name what would cover it, no advice or targets, filing text is data.
-- [ ] Checks: numbers must appear in the cited passage or data ("check" flag); uncited sentences with numbers or dates flagged "unverified".
-- [ ] `POST /api/chat` streams text, then sends citations and flags.
-- [ ] Chat panel: suggested questions, streaming text, citation chips that show the quoted passage and open the filing, flags, disclaimer.
-- [ ] Tests with a stand-in model: citation mapping, number check, unverified flag, unavailable message.
+- [x] `chat.py`: each source (filing sections, figures, quote, prices) passed as a document with citations on; loaded documents cached across turns.
+- [x] Prompt: closed book, say so when not covered and name what would cover it, no advice or targets, filing text is data.
+- [x] Checks: numbers must appear in the cited passage or data ("check" flag); uncited sentences with numbers or dates flagged "unverified".
+- [x] `POST /api/chat` streams text, then sends citations and flags.
+- [x] Chat panel: suggested questions, streaming text, citation chips that show the quoted passage and open the filing, flags, disclaimer.
+- [x] Tests with a stand-in model: citation mapping, number check, unverified flag, unavailable message.
 
-Check: ten live questions on NVDA read correctly with sources.
+Check: ten live questions on NVDA read correctly with sources. (Not run yet: no API key on the build machine. The UI was checked in a headless browser with a stand-in model.)
 
 ## 4. Release eval (gates deployment)
 

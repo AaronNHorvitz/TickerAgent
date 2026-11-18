@@ -15,8 +15,8 @@
   header { background: var(--accent); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
   header h1 { font-size: 18px; margin: 0; font-weight: 600; }
   header .tag { opacity: .8; font-size: 13px; }
-  form { display: flex; gap: 8px; margin-left: auto; position: relative; }
-  input { font: inherit; padding: 8px 12px; border-radius: 6px; border: 0; width: 260px; max-width: 60vw; }
+  header form { display: flex; gap: 8px; margin-left: auto; position: relative; }
+  header input { font: inherit; padding: 8px 12px; border-radius: 6px; border: 0; width: 260px; max-width: 60vw; }
   .sugg { position: absolute; top: 42px; left: 0; width: 360px; max-width: 92vw; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 10; padding: 4px 0; display: none; }
   .sugg.open { display: block; }
   .sugg div { padding: 7px 12px; cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
@@ -24,12 +24,39 @@
   .sugg b { min-width: 58px; } .sugg span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .sugg small { color: var(--muted); }
   .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 16px; margin-top: 12px; font-size: 13px; }
   .facts div span { display: block; color: var(--muted); font-size: 12px; }
-  button { font: inherit; padding: 8px 16px; border-radius: 6px; border: 0; background: #f2c14e; color: #1b2430; font-weight: 600; cursor: pointer; }
+  header button { font: inherit; padding: 8px 16px; border-radius: 6px; border: 0; background: #f2c14e; color: #1b2430; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .6; cursor: wait; }
-  main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; }
+  button { font: inherit; cursor: pointer; }
+  main { max-width: 1400px; margin: 0 auto; padding: 20px 16px 48px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
   .top { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
-  @media (max-width: 820px) { .top, .grid2 { grid-template-columns: 1fr !important; } }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; align-items: start; }
+  .brief { container-type: inline-size; min-width: 0; }
+  @container (max-width: 760px) { .top, .grid2 { grid-template-columns: 1fr !important; } }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } .chat { position: static !important; max-height: none !important; } .chat .msgs { max-height: 70vh; } }
+  @media (max-width: 820px) { .top, .grid2 { grid-template-columns: 1fr !important; } header { padding: 12px 16px; } header form { margin-left: 0; width: 100%; } header input { flex: 1; width: auto; max-width: none; } }
+  .chat { position: sticky; top: 16px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; padding: 0; }
+  .chat .head { padding: 14px 18px 10px; border-bottom: 1px solid var(--line); }
+  .chat .head h2 { margin: 0; }
+  .msgs { flex: 1; overflow-y: auto; padding: 12px 18px; display: flex; flex-direction: column; gap: 12px; min-height: 160px; }
+  .bubble { font-size: 14px; line-height: 1.55; }
+  .bubble.user { align-self: flex-end; background: var(--chip); color: var(--ink); padding: 8px 12px; border-radius: 12px 12px 2px 12px; max-width: 88%; }
+  .bubble.ai p { margin: 0 0 8px; }
+  .bubble.ai .live { white-space: pre-wrap; }
+  .bubble .note { color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .qchip { background: var(--card); border: 1px solid var(--line); color: var(--accent); border-radius: 14px; padding: 5px 11px; font-size: 13px; text-align: left; }
+  .qchip:hover { border-color: var(--accent); }
+  button.cite { border: 0; cursor: pointer; }
+  .unv { text-decoration: underline dotted var(--warn); text-underline-offset: 3px; }
+  .quote { margin-top: 8px; border-left: 3px solid var(--accent); background: var(--bg); padding: 8px 10px; font-size: 13px; border-radius: 0 6px 6px 0; }
+  .quote blockquote { margin: 4px 0 6px; white-space: pre-wrap; }
+  .quote a { color: var(--accent); }
+  .ask { display: flex; gap: 8px; padding: 10px 18px 6px; border-top: 1px solid var(--line); }
+  .ask textarea { flex: 1; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; resize: none; min-height: 40px; max-height: 120px; }
+  .ask button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 0 14px; font-weight: 600; }
+  .chat .disclaimer { padding: 0 18px 12px; margin: 0; }
+  details.loaded { font-size: 12px; color: var(--muted); margin-top: 6px; } details.loaded summary { cursor: pointer; }
   .name { font-size: 22px; font-weight: 650; margin: 0; }
   .sub { color: var(--muted); font-size: 13px; }
   .price { font-size: 32px; font-weight: 650; margin-top: 6px; }
@@ -119,7 +146,7 @@ function render(d) {
     }).join("")}</table><div class="sub" style="margin-top:6px">From the company's structured 10-K data (XBRL), fiscal year ended ${esc(d.figures[0].period_end)}. Not model-generated.</div>`
     : `<div class="sub">Structured figures not available for this filer.</div>`;
 
-  $("#out").innerHTML = `
+  $("#out").innerHTML = `<div class="layout"><div class="brief">
   <div class="top">
     <div class="card"><p class="name">${esc(d.company.name)} <span class="sub">${esc(d.company.symbol)}</span></p>${quoteHtml}
       <div class="oneliner">${esc(s.one_liner)}</div></div>
@@ -132,6 +159,7 @@ function render(d) {
     <div class="card"><h2>Key risks</h2>${list(s.key_risks)}</div>
   </div>
   <div class="card"><h2>Questions your client may ask</h2>${s.client_questions.length ? s.client_questions.map(x => `<div class="qa"><b>${esc(x.question)}</b>${esc(x.answer)}${cites(x.sources)}${flags(x.unverified_numbers)}</div>`).join("") : `<div class="sub">Available when the AI summary is on.</div>`}</div>
+  <div class="card"><h2>Ask a follow-up</h2>${suggestHtml(d.suggested_questions)}</div>
   <div class="card sources"><h2>Sources</h2><ul>${d.sources.map(x => `<li><b>${esc(x.id)}</b> ${esc(x.label)} — ${esc(x.section)} · <a href="${esc(x.url)}" target="_blank">open filing on SEC.gov</a></li>`).join("")}</ul></div>
   <div class="meta">
     <span class="badge ${m.mode}">${m.mode === "ai" ? "AI summary" : "Extractive preview"}</span>
@@ -140,7 +168,110 @@ function render(d) {
     ${m.grounding && m.grounding.points != null ? `<span>Grounding: ${m.grounding.points} cited points · ${m.grounding.dropped_uncited} uncited dropped · ${m.grounding.flagged_numbers} flagged for figure check</span>` : ""}
     <span>Data ${m.data_seconds}s · total ${m.total_seconds}s · ${esc(m.generated)}</span>
   </div>
-  <div class="disclaimer">For advisor preparation only. Summarizes public company disclosures; not investment advice or a recommendation. Verify figures against the linked filings before sharing with clients.</div>`;
+  <div class="disclaimer">For advisor preparation only. Summarizes public company disclosures; not investment advice or a recommendation. Verify figures against the linked filings before sharing with clients.</div>
+  </div>${chatPanel(d)}</div>`;
+  startChat(d);
+}
+
+// ---- Chat --------------------------------------------------------------------
+let CHAT = { ticker: null, history: [], busy: false };
+let CITES = {}, NCITE = 0;
+const suggestHtml = qs => (qs && qs.length) ? `<div class="chips">${qs.map(q => `<button type="button" class="qchip" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>` : "";
+
+function chatPanel(d) {
+  return `<aside class="card chat" id="chat" aria-label="Chat about ${esc(d.company.symbol)}">
+    <div class="head"><h2>Ask about ${esc(d.company.symbol)}</h2><div class="sub">Answers use only the filings and market data loaded above, with the quoted source one tap away.</div></div>
+    <div class="msgs" id="msgs" aria-live="polite"><div class="bubble ai"><span class="note">Try one of these, or type your own question.</span></div>${suggestHtml(d.suggested_questions)}</div>
+    <form class="ask" id="askf"><textarea id="q" rows="1" maxlength="1000" placeholder="Ask a question about ${esc(d.company.symbol)}" aria-label="Your question"></textarea><button id="send">Ask</button></form>
+    <div class="disclaimer">For advisor preparation only. Not investment advice or a recommendation.</div>
+  </aside>`;
+}
+
+function startChat(d) {
+  CHAT = { ticker: d.company.symbol, history: [], busy: false };
+  CITES = {}; NCITE = 0;
+  $("#askf").addEventListener("submit", e => { e.preventDefault(); const q = $("#q").value.trim(); if (q) ask(q); });
+  $("#q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#askf").requestSubmit(); } });
+}
+
+document.addEventListener("click", e => {
+  const chip = e.target.closest(".qchip");
+  if (chip) { ask(chip.dataset.q); return; }
+  const c = e.target.closest("button.cite[data-k]");
+  if (c) {
+    const box = c.closest(".bubble").querySelector(".quotebox"), x = CITES[c.dataset.k];
+    if (box.dataset.k === c.dataset.k) { box.innerHTML = ""; box.dataset.k = ""; return; }
+    box.dataset.k = c.dataset.k;
+    box.innerHTML = `<div class="quote"><b>${esc(x.title)}</b><blockquote>${esc(x.cited_text)}</blockquote>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${x.source.startsWith("S") || x.source === "F" ? "Open the filing on SEC.gov" : "Open the quote on Nasdaq"}</a>` : ""}</div>`;
+  }
+});
+
+function para(html) { return "<p>" + html.replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>") + "</p>"; }
+
+function finalHtml(f) {
+  if (f.unavailable || f.refused) return `<p class="note">${esc(f.message)}</p>`;
+  let html = "";
+  for (const b of f.blocks) {
+    const unv = b.flags.find(x => x.type === "unverified"), chk = b.flags.find(x => x.type === "check");
+    html += unv ? `<span class="unv" title="Unverified: states a number or date without a source">${esc(b.text)}</span>` : esc(b.text);
+    const seen = new Set();
+    for (const c of b.citations) {
+      if (seen.has(c.source + c.cited_text)) continue;
+      seen.add(c.source + c.cited_text);
+      const k = "c" + (++NCITE); CITES[k] = c;
+      html += `<button type="button" class="cite" data-k="${k}" title="Show the quoted passage">${esc(c.source)}</button>`;
+    }
+    if (chk) html += `<span class="flag" title="Not found in the cited passage or the market and figures data; check before quoting">check: ${chk.numbers.map(esc).join(", ")}</span>`;
+    if (unv) html += `<span class="flag" title="States a number or date without a citation">unverified</span>`;
+  }
+  const loaded = (f.sources || []).map(s => esc(s.title)).join("<br>");
+  return para(html || esc("No answer was returned.")) + `<div class="quotebox"></div>
+    <details class="loaded"><summary>Loaded data (${(f.sources || []).length} sources)</summary>${loaded}</details>`;
+}
+
+async function ask(question) {
+  if (CHAT.busy || !CHAT.ticker) return;
+  CHAT.busy = true; $("#send").disabled = true; $("#q").value = "";
+  const msgs = $("#msgs");
+  msgs.insertAdjacentHTML("beforeend", `<div class="bubble user">${esc(question)}</div><div class="bubble ai"><div class="live"><span class="spinner"></span></div></div>`);
+  const bubble = msgs.lastElementChild, live = bubble.querySelector(".live");
+  if (window.matchMedia("(max-width: 1100px)").matches) $("#chat").scrollIntoView({ behavior: "smooth", block: "start" });
+  msgs.scrollTop = msgs.scrollHeight;
+  let text = "", done = false;
+  const fail = m => { bubble.innerHTML = `<p class="note">${esc(m)}</p>`; };
+  try {
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: CHAT.ticker, question, history: CHAT.history.slice(-12) }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); fail(d.detail || "Something went wrong. Please try again."); return; }
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (!done) {
+      const { value, done: end } = await reader.read();
+      if (end) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        const ev = (chunk.match(/^event: (.*)$/m) || [])[1], raw = (chunk.match(/^data: (.*)$/m) || [])[1];
+        const data = raw ? JSON.parse(raw) : {};
+        if (ev === "delta") { text += data.text; live.textContent = text; msgs.scrollTop = msgs.scrollHeight; }
+        else if (ev === "reset") { text = ""; live.textContent = ""; }
+        else if (ev === "error") { fail(data.message); done = true; }
+        else if (ev === "final") {
+          bubble.innerHTML = finalHtml(data); done = true;
+          if (!data.unavailable && !data.refused) {
+            const answer = data.blocks.map(b => b.text).join("").slice(0, 6000);
+            if (answer) CHAT.history.push({ role: "user", content: question }, { role: "assistant", content: answer });
+          }
+        }
+      }
+    }
+    if (!done) fail("The answer was interrupted. Please try again.");
+  } catch (err) {
+    fail("Could not reach the server. Please try again.");
+  } finally {
+    CHAT.busy = false; $("#send").disabled = false; msgs.scrollTop = msgs.scrollHeight;
+  }
 }
 
 async function loadBrief(t) {
@@ -199,6 +330,9 @@ $("#f").addEventListener("submit", e => {
   if (pick) $("#t").value = pick.symbol;
   if (t) loadBrief(t);
 });
+// A link such as /?t=NVDA opens that brief directly.
+const START = new URLSearchParams(location.search).get("t");
+if (START) { $("#t").value = START.toUpperCase(); loadBrief(START.toUpperCase()); }
 </script>
 </body>
 </html>

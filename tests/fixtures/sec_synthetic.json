@@ -1,0 +1,16 @@
+{
+  "_note": "Synthetic SEC data for tests. Wording and numbers are invented for the test, not taken from a filing.",
+  "company": {"ticker": "NVDA", "cik": 1045810, "name": "NVIDIA CORP"},
+  "filings": [
+    {"form": "10-Q", "filed": "2026-08-27", "period": "2026-07-26", "accession": "0001045810-26-000101",
+     "primary_doc": "q2.htm", "items": [],
+     "sections": {"MD&A (Part I, Item 2)": "Revenue for the second quarter was $46.7 billion, up 56% from a year ago. Data Center revenue was $41.1 billion. Gross margin was 72.4%."}},
+    {"form": "8-K", "filed": "2026-11-05", "period": "2026-11-03", "accession": "0001045810-26-000150",
+     "primary_doc": "ceo.htm", "items": ["5.02"],
+     "sections": {"8-K text": "Item 5.02. On November 3, 2026 the Board appointed a new Chief Executive Officer, effective January 1, 2027. The prior Chief Executive Officer will remain a director."}}
+  ],
+  "figures": [
+    {"metric": "Revenue", "period_end": "2026-01-25", "value": 130497000000, "prior": 60922000000, "is_per_share": false, "accession": "0001045810-26-000020"},
+    {"metric": "Diluted EPS", "period_end": "2026-01-25", "value": 2.94, "prior": 1.19, "is_per_share": true, "accession": "0001045810-26-000020"}
+  ]
+}

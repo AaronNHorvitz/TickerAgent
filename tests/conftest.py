@@ -48,3 +48,20 @@ def nasdaq_recorded(monkeypatch):
         return httpx.Response(200, json=fixture("nasdaq_not_found.json"))
     monkeypatch.setattr(nasdaq, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
     return seen
+
+
+@pytest.fixture
+def synthetic_stock(monkeypatch, nasdaq_recorded):
+    """NVDA from synthetic SEC data plus recorded Nasdaq responses."""
+    fx = fixture("sec_synthetic.json")
+    filings = []
+    for f in fx["filings"]:
+        fl = sec.Filing(form=f["form"], filed=f["filed"], period=f["period"], accession=f["accession"],
+                        primary_doc=f["primary_doc"], items=f["items"], cik=fx["company"]["cik"])
+        fl.sections = dict(f["sections"])
+        filings.append(fl)
+    monkeypatch.setattr(sec, "lookup_company", lambda t: dict(fx["company"]))
+    monkeypatch.setattr(sec, "recent_filings", lambda cik: filings)
+    monkeypatch.setattr(sec, "load_sections", lambda f: f)
+    monkeypatch.setattr(sec, "reported_figures", lambda cik: [dict(x) for x in fx["figures"]])
+    return gather.load("NVDA")

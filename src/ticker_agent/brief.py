@@ -7,7 +7,7 @@ import time
 
 from pydantic import BaseModel, Field
 
-from . import gather, llm
+from . import chat, gather, llm
 
 SYSTEM = """You are a research assistant for financial advisors at a wealth management firm.
 An advisor needs to get up to speed on a stock before a client conversation.
@@ -200,6 +200,7 @@ def build_brief(ticker: str, allow_model: bool = True) -> dict:
         "figures": data.figures,
         "summary": summary.model_dump(),
         "sources": [{k: v for k, v in s.items() if k != "text"} for s in sources],
+        "suggested_questions": chat.suggestions(data),
         "meta": {"mode": mode, "note": note, "grounding": stats, "notes": data.notes,
                  "data_seconds": data.data_seconds, "total_seconds": round(time.time() - t0, 1),
                  "generated": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())},
