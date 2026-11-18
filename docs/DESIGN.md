@@ -58,3 +58,15 @@ Advisor types a ticker → brief renders with quote, figures, summary, citations
 - Not yet verified: live gateway call. Run one brief with the provided key before the demo.
 
 See the README for running, testing and deployment.
+
+## Separate stock lookup utility
+
+At the owner's request, `../AgentTracker` is a standalone sibling utility with
+an importable NASDAQ screener downloader, ticker/name search, and CLI. It is
+independent of this application's quote adapter. Its source provenance, public
+API, CLI commands, and operating limits are in
+[the utility README](../../AgentTracker/README.md).
+
+Verification on November 18, 2026: 21 synthetic-response checks passed; live
+CLI searches for AAPL and Berkshire Hathaway succeeded. The provider supplied
+no market timestamp, so freshness remains unverified. No model was used.
